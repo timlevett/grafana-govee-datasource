@@ -43,14 +43,28 @@ function makeDatasource(devices: GoveeDevice[] = []) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderEditor(props: Partial<Parameters<typeof QueryEditor>[0]> = {}) {
+interface RenderEditorProps {
+  query?: Partial<GoveeQuery>;
+  onChange?: jest.Mock;
+  onRunQuery?: jest.Mock;
+  datasource?: any;
+}
+
+function renderEditor(props: RenderEditorProps = {}) {
   const defaults = {
     query: makeQuery(),
     onChange: jest.fn(),
     onRunQuery: jest.fn(),
     datasource: makeDatasource(),
   };
-  return render(<QueryEditor {...defaults} {...(props as any)} />);
+  const mergedProps = {
+    ...defaults,
+    ...(props.query ? { query: { ...defaults.query, ...props.query } } : {}),
+    ...(props.onChange ? { onChange: props.onChange } : {}),
+    ...(props.onRunQuery ? { onRunQuery: props.onRunQuery } : {}),
+    ...(props.datasource ? { datasource: props.datasource } : {}),
+  };
+  return render(<QueryEditor {...(mergedProps as any)} />);
 }
 
 // ---------------------------------------------------------------------------

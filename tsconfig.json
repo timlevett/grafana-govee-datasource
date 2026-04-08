@@ -1,11 +1,12 @@
 {
   "extends": "@grafana/tsconfig",
   "compilerOptions": {
-    "rootDir": "./src",
-    "baseUrl": "./src",
-    "typeRoots": ["./node_modules/@types"],
+    "rootDir": "./",
+    "baseUrl": "./",
+    "resolveJsonModule": true,
+    "typeRoots": ["./node_modules/@types", "./"],
     "paths": {}
   },
-  "include": ["src"],
+  "include": ["src", "webpack.config.ts", "*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

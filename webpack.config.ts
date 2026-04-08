@@ -1,11 +1,17 @@
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import ReplaceInFileWebpackPlugin from 'replace-in-file-webpack-plugin';
-import { Configuration } from 'webpack';
+import { Configuration, ExternalItemFunctionData } from 'webpack';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SOURCE_DIR = path.join(__dirname, 'src');
 const DIST_DIR = path.join(__dirname, 'dist');
+const packageVersion = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8')).version;
 
 const config = async (env: Record<string, unknown>): Promise<Configuration> => {
   const isProduction = Boolean(env.production);
@@ -49,10 +55,10 @@ const config = async (env: Record<string, unknown>): Promise<Configuration> => {
       '@grafana/ui',
       '@grafana/runtime',
       '@grafana/data',
-      (context: unknown, request: string, callback: (err?: Error | null, result?: string) => void) => {
+      (data: ExternalItemFunctionData, callback: (err?: Error | null, result?: string) => void) => {
         const prefix = 'grafana/';
-        if (request.indexOf(prefix) === 0) {
-          return callback(undefined, request.replace(prefix, ''));
+        if (data.request.indexOf(prefix) === 0) {
+          return callback(undefined, data.request.replace(prefix, ''));
         }
         callback();
       },
@@ -80,7 +86,7 @@ const config = async (env: Record<string, unknown>): Promise<Configuration> => {
           rules: [
             {
               search: '%VERSION%',
-              replace: require('./package.json').version,
+              replace: packageVersion,
             },
             {
               search: '%TODAY%',

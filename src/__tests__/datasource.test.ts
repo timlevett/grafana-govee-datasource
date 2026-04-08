@@ -1,6 +1,7 @@
 import { DataSource } from '../datasource';
 import { DataSourceWithBackend, getBackendSrv } from '@grafana/runtime';
 import { GoveeQuery } from '../types';
+import { of } from 'rxjs';
 
 // Helper to build a minimal DataSource instance for tests.
 function makeDS(): DataSource {
@@ -31,7 +32,7 @@ describe('DataSource.query', () => {
     ds = makeDS();
     superQuerySpy = jest
       .spyOn(DataSourceWithBackend.prototype, 'query')
-      .mockResolvedValue({ data: ['frame'] } as any);
+      .mockReturnValue(of({ data: ['frame'] } as any));
   });
 
   afterEach(() => {
@@ -40,28 +41,28 @@ describe('DataSource.query', () => {
 
   it('returns empty data immediately when all targets are hidden', async () => {
     const request: any = { targets: [makeQuery({ hide: true })] };
-    const result = await ds.query(request);
+    const result = await ds.query(request).toPromise();
     expect(result).toEqual({ data: [] });
     expect(superQuerySpy).not.toHaveBeenCalled();
   });
 
   it('returns empty data when all targets have no deviceId', async () => {
     const request: any = { targets: [makeQuery({ deviceId: '' })] };
-    const result = await ds.query(request);
+    const result = await ds.query(request).toPromise();
     expect(result).toEqual({ data: [] });
     expect(superQuerySpy).not.toHaveBeenCalled();
   });
 
   it('returns empty data when all targets have no sku', async () => {
     const request: any = { targets: [makeQuery({ sku: '' })] };
-    const result = await ds.query(request);
+    const result = await ds.query(request).toPromise();
     expect(result).toEqual({ data: [] });
     expect(superQuerySpy).not.toHaveBeenCalled();
   });
 
   it('returns empty data when targets array is empty', async () => {
     const request: any = { targets: [] };
-    const result = await ds.query(request);
+    const result = await ds.query(request).toPromise();
     expect(result).toEqual({ data: [] });
     expect(superQuerySpy).not.toHaveBeenCalled();
   });
@@ -69,12 +70,12 @@ describe('DataSource.query', () => {
   it('calls super.query with valid targets', async () => {
     const validTarget = makeQuery();
     const request: any = { targets: [validTarget] };
-    const result = await ds.query(request);
+    const result = await ds.query(request).toPromise();
     expect(superQuerySpy).toHaveBeenCalledTimes(1);
     const passedRequest = superQuerySpy.mock.calls[0][0];
     expect(passedRequest.targets).toHaveLength(1);
     expect(passedRequest.targets[0].deviceId).toBe('AA:BB:CC');
-    expect(result.data).toEqual(['frame']);
+    expect(result?.data).toEqual(['frame']);
   });
 
   it('filters hidden targets and forwards remaining to super.query', async () => {
