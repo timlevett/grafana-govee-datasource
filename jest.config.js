@@ -44,7 +44,7 @@ module.exports = {
 
   // Runs after the test framework is set up — use for jest-dom matchers etc.
   // This key is correct for Jest 27+.
-  setupFilesAfterFramework: ['@testing-library/jest-dom'],
+  setupFilesAfterEnv: ['@testing-library/jest-dom'],
 
   // Collect coverage from src/ only, excluding mocks and type-only files.
   collectCoverageFrom: [
