@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/grafana/govee-datasource/pkg/govee"
@@ -21,6 +22,7 @@ import (
 var (
 	_ backend.QueryDataHandler      = (*Datasource)(nil)
 	_ backend.CheckHealthHandler    = (*Datasource)(nil)
+	_ backend.CallResourceHandler   = (*Datasource)(nil)
 	_ instancemgmt.InstanceDisposer = (*Datasource)(nil)
 )
 
@@ -78,8 +80,6 @@ type queryModel struct {
 }
 
 func (d *Datasource) query(ctx context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
-	var response backend.DataResponse
-
 	// Unmarshal the JSON into our queryModel.
 	var qm queryModel
 
@@ -203,4 +203,84 @@ func (d *Datasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRe
 		Status:  backend.HealthStatusOk,
 		Message: "Successfully connected to Govee API",
 	}, nil
+}
+
+// CallResource handles resource calls from the frontend.
+// This is used for template variable queries.
+func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
+	// Handle different resource paths
+	switch req.Path {
+	case "devices":
+		return d.handleDevicesResource(ctx, sender)
+	default:
+		return sender.Send(&backend.CallResourceResponse{
+			Status:  http.StatusNotFound,
+			Headers: make(map[string][]string),
+			Body:    []byte(fmt.Sprintf(`{"error": "unknown resource path: %s"}`, req.Path)),
+		})
+	}
+}
+
+func (d *Datasource) handleDevicesResource(ctx context.Context, sender backend.CallResourceResponseSender) error {
+	devices, err := d.client.GetDevices(ctx)
+	if err != nil {
+		backend.Logger.Error("Failed to get devices for resource call", "error", err)
+		return sender.Send(&backend.CallResourceResponse{
+			Status:  http.StatusInternalServerError,
+			Headers: make(map[string][]string),
+			Body:    []byte(fmt.Sprintf(`{"error": "failed to get devices: %v"}`, err)),
+		})
+	}
+
+	backend.Logger.Info("Fetched devices for resource call", "count", len(devices))
+
+	// Format devices for Grafana template variables
+	// Each variable option needs text and value
+	type VariableOption struct {
+		Text  string `json:"text"`
+		Value string `json:"value"`
+	}
+
+	options := make([]VariableOption, 0, len(devices))
+	for _, device := range devices {
+		// Use device name as text, device ID as value
+		options = append(options, VariableOption{
+			Text:  device.DeviceName,
+			Value: device.DeviceID,
+		})
+	}
+
+	// Also add options for device ID + model combination (useful for deviceState queries)
+	// Format: "deviceId|model"
+	combinedOptions := make([]VariableOption, 0, len(devices))
+	for _, device := range devices {
+		combinedOptions = append(combinedOptions, VariableOption{
+			Text:  fmt.Sprintf("%s (%s)", device.DeviceName, device.Model),
+			Value: fmt.Sprintf("%s|%s", device.DeviceID, device.Model),
+		})
+	}
+
+	// Create response with both formats
+	response := map[string]interface{}{
+		"devices":        options,
+		"devicesWithModel": combinedOptions,
+	}
+
+	body, err := json.Marshal(response)
+	if err != nil {
+		return sender.Send(&backend.CallResourceResponse{
+			Status:  http.StatusInternalServerError,
+			Headers: make(map[string][]string),
+			Body:    []byte(fmt.Sprintf(`{"error": "failed to marshal response: %v"}`, err)),
+		})
+	}
+
+	headers := make(map[string][]string)
+	headers["Content-Type"] = []string{"application/json"}
+
+	return sender.Send(&backend.CallResourceResponse{
+		Status:  http.StatusOK,
+		Headers: headers,
+		Body:    body,
+	})
 }

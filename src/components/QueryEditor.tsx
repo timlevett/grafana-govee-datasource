@@ -19,10 +19,12 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
 
   const onDeviceIdChange = (event: ChangeEvent<HTMLInputElement>) => {
     onChange({ ...query, deviceId: event.target.value });
+    onRunQuery();
   };
 
   const onModelChange = (event: ChangeEvent<HTMLInputElement>) => {
     onChange({ ...query, model: event.target.value });
+    onRunQuery();
   };
 
   const { queryType = 'devices', deviceId = '', model = '' } = query;
@@ -40,12 +42,7 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
       </InlineField>
       {queryType === 'deviceState' && (
         <>
-          <InlineField 
-            label="Device ID" 
-            labelWidth={14} 
-            tooltip="The device ID from your Govee account"
-            required
-          >
+          <InlineField label="Device ID" labelWidth={14} tooltip="The device ID from your Govee account" required>
             <Input
               id="query-editor-device-id"
               onChange={onDeviceIdChange}
@@ -54,12 +51,7 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
               width={30}
             />
           </InlineField>
-          <InlineField 
-            label="Model" 
-            labelWidth={14} 
-            tooltip="The device model (e.g., H6104)"
-            required
-          >
+          <InlineField label="Model" labelWidth={14} tooltip="The device model (e.g., H6104)" required>
             <Input
               id="query-editor-model"
               onChange={onModelChange}

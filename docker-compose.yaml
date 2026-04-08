@@ -1,5 +1,35 @@
 services:
   grafana:
-    extends:
-      file: .config/docker-compose-base.yaml
-      service: grafana
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./dist:/var/lib/grafana/plugins/grafana-govee-datasource
+      - ./provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=grafana-govee-datasource
+    restart: unless-stopped
+    depends_on:
+      - dev
+
+  dev:
+    image: node:22-alpine
+    container_name: govee-dev-watcher
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./.config/watch.sh:/watch.sh:ro
+    environment:
+      - PATH=/usr/local/go/bin:/root/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    command: >
+      sh -c "
+        apk add --no-cache go git entr &&
+        chmod +x /watch.sh &&
+        /watch.sh
+      "
+
+volumes:
+  grafana-storage:

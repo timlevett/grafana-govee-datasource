@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	BaseURL = "https://api.govee.com/v1"
+	BaseURL = "https://openapi.api.govee.com/router/api/v1"
 )
 
 // Client handles communication with the Govee API
@@ -45,12 +45,7 @@ type Device struct {
 type DevicesResponse struct {
 	Code    int      `json:"code"`
 	Message string   `json:"message"`
-	Data    DevicesData `json:"data"`
-}
-
-// DevicesData contains the list of devices
-type DevicesData struct {
-	Devices []Device `json:"devices"`
+	Data    []Device `json:"data"`
 }
 
 // DeviceState represents the state of a device
@@ -69,7 +64,7 @@ type DeviceStateResponse struct {
 
 // GetDevices retrieves a list of all devices
 func (c *Client) GetDevices(ctx context.Context) ([]Device, error) {
-	url := fmt.Sprintf("%s/devices", c.baseURL)
+	url := fmt.Sprintf("%s/user/devices", c.baseURL)
 	
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -103,12 +98,12 @@ func (c *Client) GetDevices(ctx context.Context) ([]Device, error) {
 		return nil, fmt.Errorf("API returned error code %d: %s", devicesResp.Code, devicesResp.Message)
 	}
 
-	return devicesResp.Data.Devices, nil
+	return devicesResp.Data, nil
 }
 
 // GetDeviceState retrieves the current state of a specific device
 func (c *Client) GetDeviceState(ctx context.Context, deviceID string, model string) (*DeviceState, error) {
-	url := fmt.Sprintf("%s/devices/state?device=%s&model=%s", c.baseURL, deviceID, model)
+	url := fmt.Sprintf("%s/user/devices/state?device=%s&model=%s", c.baseURL, deviceID, model)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
