@@ -42,6 +42,16 @@ module.exports = {
   // Test file patterns
   testMatch: ['**/__tests__/**/*.{ts,tsx}', '**/*.{spec,test}.{ts,tsx}'],
 
+  // React 18 + @testing-library/react requires IS_REACT_ACT_ENVIRONMENT=true
+  // so that act() warnings from async state updates are surfaced correctly.
+  globals: {
+    IS_REACT_ACT_ENVIRONMENT: true,
+  },
+
+  // Run before the test framework is installed — sets NODE_ENV=test so React
+  // loads its development build (which enables act() support).
+  setupFiles: ['<rootDir>/jest.setup.js'],
+
   // Runs after the test framework is set up — use for jest-dom matchers etc.
   // This key is correct for Jest 27+.
   setupFilesAfterEnv: ['@testing-library/jest-dom'],
