@@ -1,4 +1,4 @@
-import { DataSourceJsonData, SelectableValue } from '@grafana/data';
+import { DataSourceJsonData, DataQuery, SelectableValue } from '@grafana/data';
 
 // ---------------------------------------------------------------------------
 // Govee API types
@@ -59,10 +59,12 @@ export const METRIC_OPTIONS: Array<SelectableValue<MetricInstance>> = [
 // Query types
 // ---------------------------------------------------------------------------
 
+// The Govee API only returns point-in-time snapshots, not historical data.
+// 'timeseries' is kept for backward-compatibility with existing saved queries
+// but the UI no longer offers it as an option.
 export type QueryType = 'timeseries' | 'current';
 
 export const QUERY_TYPE_OPTIONS: Array<SelectableValue<QueryType>> = [
-  { label: 'Time Series', value: 'timeseries' },
   { label: 'Current State', value: 'current' },
 ];
 
@@ -70,7 +72,7 @@ export const QUERY_TYPE_OPTIONS: Array<SelectableValue<QueryType>> = [
 // Plugin query model
 // ---------------------------------------------------------------------------
 
-export interface GoveeQuery {
+export interface GoveeQuery extends DataQuery {
   queryType: QueryType;
   /** Govee device MAC address / identifier */
   deviceId: string;

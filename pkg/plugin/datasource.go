@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
@@ -61,6 +62,27 @@ func (d *GoveeDatasource) apiKey() string {
 	return models.APIKey(d.settings)
 }
 
+// sanitizeGoveeError converts raw Govee client errors into user-friendly
+// messages that are safe to display in the Grafana UI without leaking
+// internal details (Go stack frames, raw HTTP bodies, etc.).
+func sanitizeGoveeError(err error) error {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "HTTP 401") || strings.Contains(msg, "Unauthorized"):
+		return fmt.Errorf("Invalid API key — check your Govee API key in datasource settings")
+	case strings.Contains(msg, "HTTP 429") || strings.Contains(msg, "rate limit"):
+		return fmt.Errorf("Rate limit exceeded — try again tomorrow or reduce dashboard refresh rate")
+	case strings.Contains(msg, "http request") ||
+		strings.Contains(msg, "context deadline exceeded") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "i/o timeout"):
+		return fmt.Errorf("Cannot reach Govee API — check network connectivity")
+	default:
+		return fmt.Errorf("Govee API error — check datasource settings and try again")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // CheckHealth — validates the API key by listing devices
 // ---------------------------------------------------------------------------
@@ -79,7 +101,7 @@ func (d *GoveeDatasource) CheckHealth(ctx context.Context, _ *backend.CheckHealt
 		log.DefaultLogger.Error("CheckHealth: ListDevices failed", "error", err.Error())
 		return &backend.CheckHealthResult{
 			Status:  backend.HealthStatusError,
-			Message: fmt.Sprintf("Could not connect to Govee API: %s", err.Error()),
+			Message: sanitizeGoveeError(err).Error(),
 		}, nil
 	}
 
@@ -127,7 +149,7 @@ func (d *GoveeDatasource) handleGetDevices(ctx context.Context, sender backend.C
 	devices, err := d.client.ListDevices(ctx, apiKey)
 	if err != nil {
 		log.DefaultLogger.Error("CallResource /devices: ListDevices failed", "error", err.Error())
-		body, _ := json.Marshal(map[string]string{"error": err.Error()})
+		body, _ := json.Marshal(map[string]string{"error": sanitizeGoveeError(err).Error()})
 		return sender.Send(&backend.CallResourceResponse{
 			Status: http.StatusBadGateway,
 			Body:   body,
@@ -193,7 +215,7 @@ func (d *GoveeDatasource) runQuery(ctx context.Context, apiKey string, q backend
 	if err != nil {
 		log.DefaultLogger.Error("QueryData: QueryDeviceState failed",
 			"device", qm.DeviceID, "sku", qm.SKU, "error", err.Error())
-		return backend.DataResponse{Error: fmt.Errorf("query device state: %w", err)}
+		return backend.DataResponse{Error: sanitizeGoveeError(err)}
 	}
 
 	// Find the requested capability in the state response.

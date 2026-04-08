@@ -3,8 +3,10 @@ import {
   CoreApp,
   ScopedVars,
   DataQueryRequest,
+  DataQueryResponse,
 } from '@grafana/data';
-import { DataSourceWithBackend, getBackendSrv } from '@grafana/runtime';
+import { DataSourceWithBackend, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+import { of, Observable } from 'rxjs';
 
 import {
   GoveeQuery,
@@ -15,19 +17,22 @@ import {
 } from './types';
 
 export class DataSource extends DataSourceWithBackend<GoveeQuery, GoveeDataSourceOptions> {
+  url: string;
+
   constructor(instanceSettings: DataSourceInstanceSettings<GoveeDataSourceOptions>) {
     super(instanceSettings);
+    this.url = instanceSettings.url || '';
   }
 
   // -------------------------------------------------------------------------
   // Query — delegated to backend via DataSourceWithBackend
   // -------------------------------------------------------------------------
 
-  query(request: DataQueryRequest<GoveeQuery>): ReturnType<DataSourceWithBackend<GoveeQuery, GoveeDataSourceOptions>['query']> {
+  query(request: DataQueryRequest<GoveeQuery>): Observable<DataQueryResponse> {
     // Filter out targets with no device selected
     const targets = request.targets.filter((t) => !t.hide && t.deviceId && t.sku);
     if (targets.length === 0) {
-      return Promise.resolve({ data: [] });
+      return of({ data: [] });
     }
     return super.query({ ...request, targets });
   }
@@ -41,7 +46,15 @@ export class DataSource extends DataSourceWithBackend<GoveeQuery, GoveeDataSourc
   }
 
   applyTemplateVariables(query: GoveeQuery, scopedVars: ScopedVars): GoveeQuery {
-    return query;
+    const templateSrv = getTemplateSrv();
+    return {
+      ...query,
+      deviceId: templateSrv.replace(query.deviceId ?? '', scopedVars),
+      metric: templateSrv.replace(query.metric ?? '', scopedVars) as GoveeQuery['metric'],
+      customInstance: query.customInstance
+        ? templateSrv.replace(query.customInstance, scopedVars)
+        : query.customInstance,
+    };
   }
 
   // -------------------------------------------------------------------------

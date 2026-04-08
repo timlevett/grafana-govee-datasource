@@ -3,13 +3,42 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/timlevett/grafana-govee-datasource/pkg/models"
 )
+
+// ---------------------------------------------------------------------------
+// sanitizeGoveeError
+// ---------------------------------------------------------------------------
+
+func TestSanitizeGoveeError(t *testing.T) {
+	tests := []struct {
+		raw      string
+		wantSub  string
+	}{
+		{"govee: API error HTTP 401: Unauthorized", "Invalid API key"},
+		{"govee: API rate limit exceeded (HTTP 429)", "Rate limit exceeded"},
+		{"govee: daily rate limit of 10,000 requests reached; resets at midnight UTC", "Rate limit exceeded"},
+		{"govee: http request: dial tcp: connection refused", "Cannot reach Govee API"},
+		{"context deadline exceeded", "Cannot reach Govee API"},
+		{"no such host", "Cannot reach Govee API"},
+		{"govee: API error HTTP 500: internal server error", "Govee API error"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.raw, func(t *testing.T) {
+			got := sanitizeGoveeError(fmt.Errorf("%s", tt.raw)).Error()
+			if !strings.Contains(got, tt.wantSub) {
+				t.Errorf("sanitizeGoveeError(%q) = %q; want substring %q", tt.raw, got, tt.wantSub)
+			}
+		})
+	}
+}
 
 // ---------------------------------------------------------------------------
 // toFloat64

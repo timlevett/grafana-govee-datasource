@@ -55,6 +55,28 @@ The key looks like: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 
 ---
 
+## Quickstart with Docker
+
+The fastest way to try the plugin locally:
+
+```bash
+# 1. Build the plugin (frontend + backend)
+npm ci && npm run build
+go build -o dist/gpx_govee_datasource_linux_amd64 ./pkg/main.go
+
+# 2. Start Grafana with the plugin pre-loaded
+docker compose up
+
+# 3. Open http://localhost:3000  (anonymous admin access enabled by default)
+#    Go to Configuration → Data Sources → Add data source → search "Govee"
+```
+
+> **Note:** The Go binary inside the container must target Linux amd64.
+> On macOS/Windows, cross-compile with:
+> `GOOS=linux GOARCH=amd64 go build -o dist/gpx_govee_datasource_linux_amd64 ./pkg/main.go`
+
+---
+
 ## Installation
 
 ### Option A: Build from source

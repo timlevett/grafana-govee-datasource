@@ -9,8 +9,6 @@ import {
   GoveeDevice,
   MetricInstance,
   METRIC_OPTIONS,
-  QueryType,
-  QUERY_TYPE_OPTIONS,
 } from '../types';
 
 type Props = QueryEditorProps<DataSource, GoveeQuery, GoveeDataSourceOptions>;
@@ -82,12 +80,6 @@ export class QueryEditor extends PureComponent<Props, State> {
   // Change handlers
   // -------------------------------------------------------------------------
 
-  onQueryTypeChange = (value: SelectableValue<QueryType>) => {
-    const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, queryType: value.value! });
-    onRunQuery();
-  };
-
   onDeviceChange = (value: SelectableValue<string>) => {
     const { onChange, query, onRunQuery } = this.props;
     const device = this.state.devices.find((d) => d.device === value.value);
@@ -128,21 +120,10 @@ export class QueryEditor extends PureComponent<Props, State> {
       : undefined;
 
     const selectedMetric = METRIC_OPTIONS.find((o) => o.value === query.metric) ?? METRIC_OPTIONS[0];
-    const selectedQueryType = QUERY_TYPE_OPTIONS.find((o) => o.value === query.queryType) ?? QUERY_TYPE_OPTIONS[1];
 
     return (
       <div>
         <InlineFieldRow>
-          {/* Query type */}
-          <InlineField label="Query Type" labelWidth={14}>
-            <Select
-              width={20}
-              options={QUERY_TYPE_OPTIONS}
-              value={selectedQueryType}
-              onChange={this.onQueryTypeChange}
-            />
-          </InlineField>
-
           {/* Device selector */}
           <InlineField label="Device" labelWidth={10} grow>
             <Select
