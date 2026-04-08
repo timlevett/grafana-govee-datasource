@@ -23,6 +23,7 @@ const (
 	apiKeyHeader        = "Govee-API-Key"
 	contentTypeJSON     = "application/json"
 	httpTimeoutSeconds  = 15
+	defaultStateTTL     = 60 * time.Second
 )
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,12 @@ func (r *rateLimiter) Remaining() int {
 // GoveeClient
 // ---------------------------------------------------------------------------
 
+// stateCacheEntry holds a cached device state response and its expiry time.
+type stateCacheEntry struct {
+	data      *DeviceStateData
+	expiresAt time.Time
+}
+
 // GoveeClient wraps the Govee OpenAPI HTTP client.
 // The API key is passed per-call (from DecryptedSecureJSONData) and is
 // never stored in the struct so it cannot leak into logs.
@@ -144,6 +151,9 @@ type GoveeClient struct {
 	baseURL     string
 	httpClient  *http.Client
 	rateLimiter *rateLimiter
+	stateTTL    time.Duration
+	cacheMu     sync.RWMutex
+	stateCache  map[string]stateCacheEntry
 }
 
 // NewGoveeClient creates a new GoveeClient. baseURL may be empty, in which
@@ -158,6 +168,8 @@ func NewGoveeClient(baseURL string) *GoveeClient {
 			Timeout: httpTimeoutSeconds * time.Second,
 		},
 		rateLimiter: newRateLimiter(),
+		stateTTL:    defaultStateTTL,
+		stateCache:  make(map[string]stateCacheEntry),
 	}
 }
 
@@ -260,10 +272,22 @@ type stateReqPayload struct {
 }
 
 // QueryDeviceState calls POST /router/api/v1/device/state and returns the
-// device state for the given SKU and device identifier.
+// device state for the given SKU and device identifier. Responses are cached
+// for stateTTL (default 60s) to avoid burning the 10,000 req/day quota when
+// multiple panels query the same device.
 func (c *GoveeClient) QueryDeviceState(ctx context.Context, apiKey, sku, device string) (*DeviceStateData, error) {
+	cacheKey := sku + ":" + device
+
+	// Check cache under read lock.
+	c.cacheMu.RLock()
+	entry, ok := c.stateCache[cacheKey]
+	c.cacheMu.RUnlock()
+	if ok && time.Now().Before(entry.expiresAt) {
+		return entry.data, nil
+	}
+
 	reqBody := stateRequest{
-		RequestID: "govee-datasource",
+		RequestID: fmt.Sprintf("%s-%s-%d", sku, device, time.Now().UnixNano()),
 		Payload: stateReqPayload{
 			SKU:    sku,
 			Device: device,
@@ -283,6 +307,14 @@ func (c *GoveeClient) QueryDeviceState(ctx context.Context, apiKey, sku, device 
 	if payload.Code != 0 && payload.Code != 200 {
 		return nil, fmt.Errorf("govee: API returned code %d: %s", payload.Code, payload.Message)
 	}
+
+	// Store in cache under write lock.
+	c.cacheMu.Lock()
+	c.stateCache[cacheKey] = stateCacheEntry{
+		data:      &payload.Data,
+		expiresAt: time.Now().Add(c.stateTTL),
+	}
+	c.cacheMu.Unlock()
 
 	return &payload.Data, nil
 }

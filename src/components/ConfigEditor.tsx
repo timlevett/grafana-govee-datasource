@@ -4,6 +4,7 @@ import {
   updateDatasourcePluginJsonDataOption,
   updateDatasourcePluginSecureJsonDataOption,
 } from '@grafana/data';
+import { getBackendSrv } from '@grafana/runtime';
 import { Field, Input, Button, Alert, SecretInput } from '@grafana/ui';
 
 import { GoveeDataSourceOptions, GoveeSecureJsonData } from '../types';
@@ -48,22 +49,33 @@ export class ConfigEditor extends PureComponent<Props, State> {
   // -------------------------------------------------------------------------
 
   onTest = async () => {
+    const { options } = this.props;
+    const uid = options.uid;
+
+    if (!uid) {
+      this.setState({ testResult: { ok: false, message: 'Save the datasource first, then test the connection.' } });
+      return;
+    }
+
     this.setState({ testing: true, testResult: undefined });
     try {
-      // DataSourceWithBackend exposes testDatasource through the datasource instance.
-      // In the config editor we trigger it via the Grafana API directly.
-      const result = await (this.props as any).onOptionsChange && this.callTest();
-      void result;
-    } catch {
-      // handled in callTest
+      const response = await getBackendSrv()
+        .fetch<{ status: string; message: string }>({
+          url: `/api/datasources/uid/${uid}/health`,
+          method: 'GET',
+        })
+        .toPromise();
+
+      const ok = response?.data?.status === 'OK';
+      this.setState({
+        testing: false,
+        testResult: { ok, message: response?.data?.message ?? (ok ? 'Connection OK' : 'Health check failed') },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.setState({ testing: false, testResult: { ok: false, message: `Connection failed: ${message}` } });
     }
   };
-
-  private async callTest() {
-    // The standard Grafana "Save & test" flow is the primary path.
-    // This button gives a quick inline test without saving.
-    this.setState({ testing: false, testResult: { ok: true, message: 'Use Save & Test to validate the API key.' } });
-  }
 
   // -------------------------------------------------------------------------
   // Render
