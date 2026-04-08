@@ -1,0 +1,25 @@
+{
+  "type": "datasource",
+  "name": "Govee Datasource",
+  "id": "timlevett-govee-datasource",
+  "backend": true,
+  "executable": "gpx_govee_datasource",
+  "info": {
+    "description": "Grafana datasource plugin for the Govee smart home API",
+    "author": {
+      "name": "Tim Levett"
+    },
+    "keywords": ["govee", "smart home", "iot"],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "version": "1.0.0",
+    "updated": "2026-04-08"
+  },
+  "routes": [],
+  "dependencies": {
+    "grafanaDependency": ">=10.0.0",
+    "plugins": []
+  }
+}

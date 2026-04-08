@@ -1,0 +1,58 @@
+# ---- Node / Frontend ----
+node_modules/
+dist/
+.cache/
+.parcel-cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
+# Test coverage
+coverage/
+
+# TypeScript incremental compilation
+*.tsbuildinfo
+
+# ESLint cache
+.eslintcache
+
+# ---- Go / Backend ----
+# Compiled plugin binary (produced by mage/make build)
+gpx_govee_datasource
+gpx_govee_datasource_*
+*.exe
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# ---- IDE / OS ----
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ---- Environment / Secrets ----
+.env
+.env.local
+.env.*.local
+# Never commit the actual API key!
+
+# ---- Grafana local dev ----
+data/
+logs/
+plugins-bundled/
+
+# ---- Mage build cache ----
+.mage/
