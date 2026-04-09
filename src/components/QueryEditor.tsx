@@ -1,67 +1,190 @@
-import React, { ChangeEvent } from 'react';
-import { InlineField, Input, Select, Stack } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
+import React, { PureComponent } from 'react';
+import { QueryEditorProps, SelectableValue } from '@grafana/data';
+import { Select, Input, InlineFieldRow, InlineField } from '@grafana/ui';
+
 import { DataSource } from '../datasource';
-import { MyDataSourceOptions, MyQuery } from '../types';
+import {
+  GoveeDataSourceOptions,
+  GoveeQuery,
+  GoveeDevice,
+  MetricInstance,
+  METRIC_OPTIONS,
+} from '../types';
 
-type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
+type Props = QueryEditorProps<DataSource, GoveeQuery, GoveeDataSourceOptions>;
 
-const queryTypes = [
-  { label: 'List Devices', value: 'devices' },
-  { label: 'Device State', value: 'deviceState' },
-];
+interface State {
+  devices: GoveeDevice[];
+  devicesLoading: boolean;
+}
 
-export function QueryEditor({ query, onChange, onRunQuery }: Props) {
-  const onQueryTypeChange = (selected: { value?: string }) => {
-    onChange({ ...query, queryType: selected.value || 'devices' });
+export class QueryEditor extends PureComponent<Props, State> {
+  state: State = {
+    devices: [],
+    devicesLoading: false,
+  };
+
+  componentDidMount() {
+    this.loadDevices();
+  }
+
+  // -------------------------------------------------------------------------
+  // Device loading
+  // -------------------------------------------------------------------------
+
+  loadDevices = async () => {
+    this.setState({ devicesLoading: true });
+    try {
+      const devices = await this.props.datasource.getDevices();
+      this.setState({ devices, devicesLoading: false });
+    } catch {
+      this.setState({ devicesLoading: false });
+    }
+  };
+
+  getDeviceOptions = (): Array<SelectableValue<string>> => {
+    return this.state.devices.map((d) => ({
+      label: d.deviceName || d.device,
+      value: d.device,
+      description: `${d.sku} — ${d.type}`,
+    }));
+  };
+
+  /**
+   * Returns capability instances available on the currently selected device.
+   * Falls back to the full METRIC_OPTIONS list when no device is selected.
+   */
+  getMetricOptions = (): Array<SelectableValue<MetricInstance>> => {
+    const { query } = this.props;
+    const { devices } = this.state;
+    const selectedDevice = devices.find((d) => d.device === query.deviceId);
+
+    if (!selectedDevice) {
+      return METRIC_OPTIONS;
+    }
+
+    const availableInstances = new Set(selectedDevice.capabilities.map((c) => c.instance));
+    const filtered = METRIC_OPTIONS.filter(
+      (opt) => opt.value === 'custom' || (opt.value && availableInstances.has(opt.value))
+    );
+
+    // Always include "custom" at the end
+    if (!filtered.find((o) => o.value === 'custom')) {
+      filtered.push(METRIC_OPTIONS.find((o) => o.value === 'custom')!);
+    }
+
+    return filtered.length > 1 ? filtered : METRIC_OPTIONS;
+  };
+
+  // -------------------------------------------------------------------------
+  // Change handlers
+  // -------------------------------------------------------------------------
+
+  onDeviceChange = (value: SelectableValue<string>) => {
+    const { onChange, query, onRunQuery } = this.props;
+    const device = this.state.devices.find((d) => d.device === value.value);
+    onChange({
+      ...query,
+      deviceId: value.value ?? '',
+      sku: device?.sku ?? '',
+      deviceName: device?.deviceName ?? value.label ?? '',
+    });
     onRunQuery();
   };
 
-  const onDeviceIdChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...query, deviceId: event.target.value });
+  onMetricChange = (value: SelectableValue<MetricInstance>) => {
+    const { onChange, query, onRunQuery } = this.props;
+    onChange({ ...query, metric: value.value! });
     onRunQuery();
   };
 
-  const onModelChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...query, model: event.target.value });
-    onRunQuery();
+  onCustomInstanceChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { onChange, query } = this.props;
+    onChange({ ...query, customInstance: event.target.value });
   };
 
-  const { queryType = 'devices', deviceId = '', model = '' } = query;
+  onCustomInstanceBlur = () => {
+    this.props.onRunQuery();
+  };
 
-  return (
-    <Stack gap={0}>
-      <InlineField label="Query Type" labelWidth={14} tooltip="Select the type of query to execute">
-        <Select
-          id="query-editor-query-type"
-          options={queryTypes}
-          value={queryType}
-          onChange={onQueryTypeChange}
-          width={20}
-        />
-      </InlineField>
-      {queryType === 'deviceState' && (
-        <>
-          <InlineField label="Device ID" labelWidth={14} tooltip="The device ID from your Govee account" required>
-            <Input
-              id="query-editor-device-id"
-              onChange={onDeviceIdChange}
-              value={deviceId}
-              placeholder="Enter device ID"
-              width={30}
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
+
+  render() {
+    const { query } = this.props;
+    const { devicesLoading } = this.state;
+
+    const selectedDevice = query.deviceId
+      ? { label: query.deviceName || query.deviceId, value: query.deviceId }
+      : undefined;
+
+    const selectedMetric = METRIC_OPTIONS.find((o) => o.value === query.metric) ?? METRIC_OPTIONS[0];
+
+    return (
+      <div>
+        <InlineFieldRow>
+          {/* Device selector */}
+          <InlineField label="Device" labelWidth={10} grow>
+            <Select
+              width={32}
+              placeholder={devicesLoading ? 'Loading devices…' : 'Select device'}
+              options={this.getDeviceOptions()}
+              value={selectedDevice}
+              onChange={this.onDeviceChange}
+              isLoading={devicesLoading}
+              noOptionsMessage="No devices found. Check your API key."
             />
           </InlineField>
-          <InlineField label="Model" labelWidth={14} tooltip="The device model (e.g., H6104)" required>
-            <Input
-              id="query-editor-model"
-              onChange={onModelChange}
-              value={model}
-              placeholder="Enter device model"
-              width={30}
+
+          {/* Refresh devices button */}
+          <InlineField label="" labelWidth={0}>
+            <button
+              className="btn btn-secondary btn-small"
+              onClick={this.loadDevices}
+              title="Refresh device list"
+              style={{ marginLeft: '4px' }}
+            >
+              ↺
+            </button>
+          </InlineField>
+        </InlineFieldRow>
+
+        <InlineFieldRow>
+          {/* Metric / capability */}
+          <InlineField
+            label="Metric"
+            labelWidth={14}
+            tooltip="The capability instance to query from the device state."
+          >
+            <Select
+              width={24}
+              options={this.getMetricOptions()}
+              value={selectedMetric}
+              onChange={this.onMetricChange}
             />
           </InlineField>
-        </>
-      )}
-    </Stack>
-  );
+
+          {/* Custom instance input */}
+          {query.metric === 'custom' && (
+            <InlineField label="Instance name" labelWidth={16}>
+              <Input
+                width={20}
+                placeholder="e.g. sensorTemperature"
+                value={query.customInstance ?? ''}
+                onChange={this.onCustomInstanceChange}
+                onBlur={this.onCustomInstanceBlur}
+              />
+            </InlineField>
+          )}
+        </InlineFieldRow>
+
+        {!query.deviceId && (
+          <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
+            Select a device to begin. Devices are fetched from your Govee account.
+          </div>
+        )}
+      </div>
+    );
+  }
 }

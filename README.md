@@ -1,136 +1,313 @@
-# grafana-govee-datasource
+# Govee Datasource for Grafana
 
-A Grafana datasource plugin for interacting with the Govee API.
+A production-ready Grafana backend datasource plugin that connects your Grafana
+dashboards to the [Govee](https://www.govee.com/) smart home OpenAPI.
 
-## What are Grafana data source plugins?
+Monitor temperature, humidity, battery level, power state, brightness, and
+other sensor readings from your Govee devices in real time — displayed on
+Grafana Stat, Gauge, Time Series, and Table panels.
 
-Grafana supports a wide range of data sources, including Prometheus, MySQL, and even Datadog. There’s a good chance you can already visualize metrics from the systems you have set up. In some cases, though, you already have an in-house metrics solution that you’d like to add to your Grafana dashboards. Grafana Data Source Plugins enables integrating such solutions with Grafana.
+---
 
-## Getting started
+## Features
 
-### Backend
+- **Secure API key handling** — your Govee API key is stored encrypted in
+  Grafana's secret storage and processed exclusively in the Go backend. It is
+  never sent to the browser.
+- **Device auto-discovery** — the query editor automatically fetches your
+  registered Govee devices and presents them in a dropdown.
+- **Capability-aware metric selector** — the plugin filters the metric list to
+  only the capabilities your device actually supports.
+- **Multiple metrics** — temperature, humidity, battery, power state,
+  brightness, colour temperature, online status, and any custom capability
+  instance.
+- **Rate limit awareness** — in-memory daily request counter with automatic
+  midnight UTC reset (10,000 req/day Govee limit).
+- **Compatible with Grafana 10+**
 
-1. Update [Grafana plugin SDK for Go](https://grafana.com/developers/plugin-tools/key-concepts/backend-plugins/grafana-plugin-sdk-for-go) dependency to the latest minor version:
+---
 
-   ```bash
-   go get -u github.com/grafana/grafana-plugin-sdk-go
-   go mod tidy
-   ```
+## Prerequisites
 
-2. Build plugin backend binaries for Linux, Windows and Darwin:
+| Requirement | Version |
+|-------------|---------|
+| Grafana | >= 10.0.0 |
+| Node.js | >= 20 |
+| Go | >= 1.21 |
+| A Govee account | — |
+| A Govee API key | — |
 
-   ```bash
-   mage -v
-   ```
+---
 
-3. List all available Mage targets for additional commands:
+## Getting a Govee API key
 
-   ```bash
-   mage -l
-   ```
+1. Open the **Govee Home** mobile app (iOS or Android).
+2. Go to **Profile** (bottom-right) → **Settings** (gear icon, top-right).
+3. Tap **Apply for API Key**.
+4. Fill in the form; the key is emailed to you within minutes.
 
-### Frontend
+The key looks like: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 
-1. Install dependencies
+> **Rate limit:** 10,000 API requests per day per account. With a typical
+> Grafana dashboard refreshing every 30 seconds and 10 devices, you'll use
+> ~28,800 requests/day — consider lengthening refresh intervals or reducing
+> panel count if you have many devices.
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Build plugin in development mode and run in watch mode
+## Quickstart with Docker
 
-   ```bash
-   npm run dev
-   ```
+The fastest way to try the plugin locally:
 
-3. Build plugin in production mode
+```bash
+# 1. Build the plugin (frontend + backend)
+npm ci && npm run build
+go build -o dist/gpx_govee_datasource_linux_amd64 ./pkg/main.go
 
-   ```bash
-   npm run build
-   ```
+# 2. Start Grafana with the plugin pre-loaded
+docker compose up
 
-4. Run the tests (using Jest)
+# 3. Open http://localhost:3000  (anonymous admin access enabled by default)
+#    Go to Configuration → Data Sources → Add data source → search "Govee"
+```
 
-   ```bash
-   # Runs the tests and watches for changes, requires git init first
-   npm run test
+> **Note:** The Go binary inside the container must target Linux amd64.
+> On macOS/Windows, cross-compile with:
+> `GOOS=linux GOARCH=amd64 go build -o dist/gpx_govee_datasource_linux_amd64 ./pkg/main.go`
 
-   # Exits after running all the tests
-   npm run test:ci
-   ```
+---
 
-5. Spin up a Grafana instance and run the plugin inside it (using Docker)
+## Installation
 
-   ```bash
-   npm run server
-   ```
+### Option A: Build from source
 
-6. Run the E2E tests (using Playwright)
+```bash
+git clone https://github.com/timlevett/grafana-govee-datasource.git
+cd grafana-govee-datasource
 
-   ```bash
-   # Spins up a Grafana instance first that we tests against
-   npm run server
+# Install Node dependencies and build frontend
+npm ci
+npm run build
 
-   # If you wish to start a certain Grafana version. If not specified will use latest by default
-   GRAFANA_VERSION=11.3.0 npm run server
+# Build the Go backend binary
+go build -o dist/gpx_govee_datasource ./pkg/main.go
 
-   # Starts the tests
-   npm run e2e
-   ```
+# Copy the dist/ folder to Grafana's plugin directory
+# (default on Linux: /var/lib/grafana/plugins/)
+cp -r dist/ /var/lib/grafana/plugins/timlevett-govee-datasource/
+```
 
-7. Run the linter
+For unsigned plugin development, add to your `grafana.ini` or environment:
+```ini
+[plugins]
+allow_loading_unsigned_plugins = timlevett-govee-datasource
+```
 
-   ```bash
-   npm run lint
+Restart Grafana, then navigate to **Configuration → Plugins** to enable it.
 
-   # or
+### Option B: Grafana Plugin Catalog
 
-   npm run lint:fix
-   ```
+Once published, search for "Govee" in the Grafana plugin catalog.
 
-## Distributing your plugin
+---
 
-When distributing a Grafana plugin either within the community or privately the plugin must be signed so the Grafana application can verify its authenticity. This can be done with the `@grafana/sign-plugin` package.
+## Configuration
 
-_Note: It's not necessary to sign a plugin during development. The docker development environment that is scaffolded with `@grafana/create-plugin` caters for running the plugin without a signature._
+1. In Grafana, go to **Configuration → Data Sources → Add data source**.
+2. Search for "Govee" and click it.
+3. Paste your Govee API key in the **Govee API Key** field.
+4. Optionally override the **API Base URL** (default: `https://openapi.api.govee.com`).
+5. Click **Save & Test** — you should see a success message listing your device count.
 
-## Initial steps
+---
 
-Before signing a plugin please read the Grafana [plugin publishing and signing criteria](https://grafana.com/legal/plugins/#plugin-publishing-and-signing-criteria) documentation carefully.
+## Usage
 
-`@grafana/create-plugin` has added the necessary commands and workflows to make signing and distributing a plugin via the grafana plugins catalog as straightforward as possible.
+### Creating a panel
 
-Before signing a plugin for the first time please consult the Grafana [plugin signature levels](https://grafana.com/legal/plugins/#what-are-the-different-classifications-of-plugins) documentation to understand the differences between the types of signature level.
+1. Create or open a dashboard and add a panel.
+2. Select your Govee datasource.
+3. In the query editor:
+   - **Query Type**: `Current State` (instant value) or `Time Series`.
+   - **Device**: select from the dropdown (devices are fetched from your account).
+   - **Metric**: choose the capability to monitor (e.g. Temperature, Humidity).
+4. Click **Apply**.
 
-1. Create a [Grafana Cloud account](https://grafana.com/signup).
-2. Make sure that the first part of the plugin ID matches the slug of your Grafana Cloud account.
-   - _You can find the plugin ID in the `plugin.json` file inside your plugin directory. For example, if your account slug is `acmecorp`, you need to prefix the plugin ID with `acmecorp-`._
-3. Create a Grafana Cloud API key with the `PluginPublisher` role.
-4. Keep a record of this API key as it will be required for signing a plugin
+### Recommended panel types
 
-## Signing a plugin
+| Metric | Panel type |
+|--------|-----------|
+| Temperature | Stat, Gauge, Time Series |
+| Humidity | Stat, Gauge |
+| Battery | Gauge, Bar Gauge |
+| Power State | Stat |
+| Brightness | Gauge |
+| Online Status | Stat |
 
-### Using Github actions release workflow
+### Custom capability instances
 
-If the plugin is using the github actions supplied with `@grafana/create-plugin` signing a plugin is included out of the box. The [release workflow](./.github/workflows/release.yml) can prepare everything to make submitting your plugin to Grafana as easy as possible. Before being able to sign the plugin however a secret needs adding to the Github repository.
+Select **Custom (enter instance)** in the metric dropdown and type the
+capability `instance` string from the Govee API response directly (e.g.
+`sensorTemperature`, `sensorHumidity`). This is useful for newer devices whose
+capabilities are not yet listed in the plugin defaults.
 
-1. Please navigate to "settings > secrets > actions" within your repo to create secrets.
-2. Click "New repository secret"
-3. Name the secret "GRAFANA_API_KEY"
-4. Paste your Grafana Cloud API key in the Secret field
-5. Click "Add secret"
+---
 
-#### Push a version tag
+## Development
 
-To trigger the workflow we need to push a version tag to github. This can be achieved with the following steps:
+### Setup
 
-1. Run `npm version <major|minor|patch>`
-2. Run `git push origin main --follow-tags`
+```bash
+git clone https://github.com/timlevett/grafana-govee-datasource.git
+cd grafana-govee-datasource
 
-## Learn more
+# Install Node deps
+npm ci
 
-Below you can find source code for existing app plugins and other related documentation.
+# Copy environment template
+cp .env.example .env
+# Edit .env — set GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS etc.
+```
 
-- [Basic data source plugin example](https://github.com/grafana/grafana-plugin-examples/tree/master/examples/datasource-basic#readme)
-- [`plugin.json` documentation](https://grafana.com/developers/plugin-tools/reference/plugin-json)
-- [How to sign a plugin?](https://grafana.com/developers/plugin-tools/publish-a-plugin/sign-a-plugin)
+### Frontend development
+
+```bash
+# Start webpack in watch mode
+npm run dev
+
+# In a separate terminal: start Grafana (with plugin path pointing to dist/)
+```
+
+### Backend development
+
+```bash
+# Build the backend binary (host OS)
+go build -o gpx_govee_datasource ./pkg/main.go
+
+# Cross-compile for Linux amd64
+GOOS=linux GOARCH=amd64 go build -o gpx_govee_datasource_linux_amd64 ./pkg/main.go
+```
+
+### Running tests
+
+```bash
+# Frontend (Jest)
+npm test
+
+# Frontend with coverage
+npm test -- --coverage
+
+# Backend (Go)
+go test ./...
+
+# Backend with race detector
+go test -race ./...
+```
+
+### Linting
+
+```bash
+# Frontend
+npm run lint
+npm run lint:fix
+
+# Backend
+golangci-lint run ./...
+
+# Type-check (no emit)
+npm run typecheck
+```
+
+### Full build
+
+```bash
+make build
+```
+
+---
+
+## Project structure
+
+```
+grafana-govee-datasource/
+├── .github/
+│   └── workflows/
+│       └── ci.yml          # CI: build, test, lint (frontend + backend)
+├── pkg/
+│   ├── main.go             # Go entry point
+│   ├── models/
+│   │   └── models.go       # Shared data models (QueryModel, PluginSettings)
+│   └── plugin/
+│       ├── datasource.go   # QueryData, CheckHealth, CallResource
+│       └── govee.go        # Govee API client + rate limiter
+├── src/
+│   ├── __mocks__/          # Jest mocks for Grafana packages
+│   ├── components/
+│   │   ├── ConfigEditor.tsx
+│   │   └── QueryEditor.tsx
+│   ├── img/
+│   │   └── logo.svg
+│   ├── datasource.ts       # Frontend DataSource class
+│   ├── module.ts           # Plugin registration
+│   └── types.ts            # TypeScript type definitions
+├── .env.example
+├── .eslintrc.js
+├── .gitignore
+├── CLAUDE.md               # AI agent guide
+├── Makefile
+├── go.mod
+├── jest.config.js
+├── package.json
+├── plugin.json             # Grafana plugin manifest
+├── tsconfig.json
+└── webpack.config.ts
+```
+
+---
+
+## Architecture: API key security
+
+```
+Browser (Grafana UI)
+    │
+    │  secureJsonData.apiKey  ──►  Grafana DB (encrypted)
+    │                                    │
+    │  CallResource /devices  ──►  Go backend  ──►  Govee API (with Govee-API-Key header)
+    │                                    │
+    │  QueryData              ──►  Go backend  ──►  Govee API (with Govee-API-Key header)
+    │                                    │
+    │◄─────────── Data frames (numbers/strings only, NO key) ─────────────
+```
+
+The API key travels: Browser → Grafana server → Go plugin binary → Govee API.
+It is **never** returned to the browser in any response.
+
+---
+
+## Govee API reference
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/router/api/v1/user/devices` | GET | List all registered devices |
+| `/router/api/v1/device/state` | POST | Query current device state |
+| `/router/api/v1/device/control` | POST | Send control commands |
+
+All requests require the `Govee-API-Key` header.
+
+---
+
+## Contributing
+
+Pull requests are welcome. Please:
+
+1. Fork the repo and create a branch from `main`.
+2. Run `make test` and `make lint` — both must pass.
+3. Add tests for new functionality.
+4. Keep the API key security model intact (see CLAUDE.md for details).
+5. Open a PR with a clear description.
+
+---
+
+## License
+
+[Apache 2.0](LICENSE)
