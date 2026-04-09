@@ -238,8 +238,13 @@ func (d *GoveeDatasource) runQuery(ctx context.Context, apiKey string, q backend
 	// Convert the raw state value to a float64 for Grafana frames.
 	numericValue, err := toFloat64(capValue)
 	if err != nil {
-		// Return as a string frame instead.
-		return d.buildStringFrame(q, qm, instance, fmt.Sprintf("%v", capValue))
+		// Not numeric — return the full value as a JSON string so callers can
+		// parse complex objects (structs, arrays) using Grafana transformations.
+		jsonBytes, jsonErr := json.Marshal(capValue)
+		if jsonErr != nil {
+			return d.buildStringFrame(q, qm, instance, fmt.Sprintf("%v", capValue))
+		}
+		return d.buildStringFrame(q, qm, instance, string(jsonBytes))
 	}
 
 	return d.buildNumericFrame(q, qm, instance, numericValue)
