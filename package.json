@@ -6,6 +6,7 @@
     "build": "webpack -c webpack.config.ts --env production",
     "dev": "webpack -c webpack.config.ts --env development --watch",
     "test": "jest",
+    "test:ci": "jest --no-coverage",
     "lint": "eslint --cache --ignore-path ./.gitignore --ext .js,.jsx,.ts,.tsx .",
     "lint:fix": "yarn run lint --fix",
     "typecheck": "tsc --noEmit"
