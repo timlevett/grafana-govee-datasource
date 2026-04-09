@@ -4,7 +4,7 @@
     "rootDir": "./",
     "baseUrl": "./",
     "resolveJsonModule": true,
-    "typeRoots": ["./node_modules/@types", "./"],
+    "typeRoots": ["./node_modules/@types"],
     "paths": {}
   },
   "include": ["src", "webpack.config.ts", "*.d.ts"],
