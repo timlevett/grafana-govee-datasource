@@ -264,3 +264,48 @@ func TestQueryDeviceState_MalformedJSON(t *testing.T) {
 		t.Error("expected error for malformed JSON")
 	}
 }
+
+// TestQueryDeviceState_RealAPIShape verifies that the parser correctly handles
+// the actual Govee state API response format, which uses "payload" and "msg"
+// (not "data" and "message" like the device-list endpoint).
+func TestQueryDeviceState_RealAPIShape(t *testing.T) {
+	// Literal response mirroring the real Govee API for POST /device/state.
+	realResponse := `{
+		"requestId": "test-1",
+		"msg": "success",
+		"code": 200,
+		"payload": {
+			"sku": "H6609",
+			"device": "1E:8C:DC:6E:02:86:24:83",
+			"capabilities": [
+				{"type": "devices.capabilities.online",    "instance": "online",      "state": {"value": true}},
+				{"type": "devices.capabilities.on_off",    "instance": "powerSwitch", "state": {"value": 1}},
+				{"type": "devices.capabilities.range",     "instance": "brightness",  "state": {"value": 100}}
+			]
+		}
+	}`
+
+	client, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(realResponse))
+	})
+
+	state, err := client.QueryDeviceState(context.Background(), "test-key", "H6609", "1E:8C:DC:6E:02:86:24:83")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(state.Capabilities) != 3 {
+		t.Fatalf("capabilities: got %d want 3", len(state.Capabilities))
+	}
+	if state.Capabilities[2].Instance != "brightness" {
+		t.Errorf("instance: got %q want brightness", state.Capabilities[2].Instance)
+	}
+	// State is {"value": 100} — a nested object. toFloat64 should handle it.
+	brightVal, err := toFloat64(state.Capabilities[2].State)
+	if err != nil {
+		t.Errorf("toFloat64(brightness state): %v", err)
+	}
+	if brightVal != 100 {
+		t.Errorf("brightness value: got %v want 100", brightVal)
+	}
+}

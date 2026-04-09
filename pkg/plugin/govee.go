@@ -74,10 +74,12 @@ type DeviceStateData struct {
 }
 
 // DeviceStatePayload is the outer response wrapper for POST /device/state.
+// Note: the state API uses "payload" and "msg" (not "data"/"message" like the
+// device-list endpoint).
 type DeviceStatePayload struct {
 	Code    int             `json:"code"`
-	Message string          `json:"message"`
-	Data    DeviceStateData `json:"data"`
+	Message string          `json:"msg"`
+	Data    DeviceStateData `json:"payload"`
 }
 
 // ---------------------------------------------------------------------------
