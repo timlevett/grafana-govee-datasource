@@ -6,6 +6,7 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -14,8 +15,20 @@ yarn-error.log*
 !.yarn/sdks
 !.yarn/versions
 
-# Test coverage
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
 coverage/
+lib-cov/
+
+# Build artifacts
+artifacts/
+work/
+ci/
 
 # TypeScript incremental compilation
 *.tsbuildinfo
@@ -56,3 +69,10 @@ plugins-bundled/
 
 # ---- Mage build cache ----
 .mage/
+
+# ---- e2e test directories ----
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
