@@ -1,5 +1,5 @@
 import { DataSource } from '../datasource';
-import { DataSourceWithBackend, getBackendSrv } from '@grafana/runtime';
+import { DataSourceWithBackend } from '@grafana/runtime';
 import { GoveeQuery } from '../types';
 import { of } from 'rxjs';
 
@@ -105,44 +105,35 @@ describe('DataSource.query', () => {
 
 describe('DataSource.getDevices', () => {
   let ds: DataSource;
+  let getResourceSpy: jest.SpyInstance;
 
   beforeEach(() => {
     ds = makeDS();
+    getResourceSpy = jest.spyOn(DataSourceWithBackend.prototype, 'getResource');
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    getResourceSpy.mockRestore();
   });
 
   it('returns devices from backend resource endpoint', async () => {
     const mockDevices = [{ sku: 'H5101', device: 'AA:BB', deviceName: 'Sensor', type: 'sensor', capabilities: [] }];
-    const fetchMock = jest.fn().mockReturnValue({
-      toPromise: jest.fn().mockResolvedValue({ data: { devices: mockDevices } }),
-    });
-    (getBackendSrv as jest.Mock).mockReturnValue({ fetch: fetchMock });
+    getResourceSpy.mockResolvedValue({ devices: mockDevices });
 
     const result = await ds.getDevices();
     expect(result).toEqual(mockDevices);
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.objectContaining({ method: 'GET' })
-    );
+    expect(getResourceSpy).toHaveBeenCalledWith('devices');
   });
 
   it('returns empty array when response has no devices', async () => {
-    const fetchMock = jest.fn().mockReturnValue({
-      toPromise: jest.fn().mockResolvedValue({ data: {} }),
-    });
-    (getBackendSrv as jest.Mock).mockReturnValue({ fetch: fetchMock });
+    getResourceSpy.mockResolvedValue({});
 
     const result = await ds.getDevices();
     expect(result).toEqual([]);
   });
 
-  it('returns empty array when fetch throws', async () => {
-    const fetchMock = jest.fn().mockReturnValue({
-      toPromise: jest.fn().mockRejectedValue(new Error('network error')),
-    });
-    (getBackendSrv as jest.Mock).mockReturnValue({ fetch: fetchMock });
+  it('returns empty array when getResource throws', async () => {
+    getResourceSpy.mockRejectedValue(new Error('network error'));
 
     const result = await ds.getDevices();
     expect(result).toEqual([]);

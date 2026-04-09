@@ -5,7 +5,7 @@ import {
   DataQueryRequest,
   DataQueryResponse,
 } from '@grafana/data';
-import { DataSourceWithBackend, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { of, Observable } from 'rxjs';
 
 import {
@@ -17,11 +17,8 @@ import {
 } from './types';
 
 export class DataSource extends DataSourceWithBackend<GoveeQuery, GoveeDataSourceOptions> {
-  url: string;
-
   constructor(instanceSettings: DataSourceInstanceSettings<GoveeDataSourceOptions>) {
     super(instanceSettings);
-    this.url = instanceSettings.url || '';
   }
 
   // -------------------------------------------------------------------------
@@ -75,13 +72,8 @@ export class DataSource extends DataSourceWithBackend<GoveeQuery, GoveeDataSourc
    */
   async getDevices(): Promise<GoveeDevice[]> {
     try {
-      const response = await getBackendSrv().fetch<DeviceListResponse>({
-        url: `${this.url}/resources/devices`,
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      }).toPromise();
-
-      return response?.data?.devices ?? [];
+      const response = await this.getResource<DeviceListResponse>('devices');
+      return response?.devices ?? [];
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('GoveeDataSource: getDevices failed', message);
