@@ -7,7 +7,8 @@ test('smoke: should render config editor with API key field', async ({
 }) => {
   const ds = await readProvisionedDataSource({ fileName: 'datasources.yml' });
   await createDataSourceConfigPage({ type: ds.type });
-  await expect(page.getByText('Govee API Key')).toBeVisible();
+  // The field label renders as "Govee API Key *" — use a more specific selector
+  await expect(page.getByText('Govee API Key *')).toBeVisible();
 });
 
 test('"Save & test" should fail when API key is not configured', async ({
