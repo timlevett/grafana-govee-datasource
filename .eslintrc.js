@@ -28,16 +28,35 @@ module.exports = {
   },
   overrides: [
     {
-      // Relax some rules for config files
-      files: ['webpack.config.ts', 'jest.config.js', '.eslintrc.js'],
+      // Relax some rules for config and mock files
+      files: ['webpack.config.ts', 'jest.config.js', '.eslintrc.js', 'src/__mocks__/**/*.ts', 'src/__mocks__/**/*.tsx'],
       rules: {
         '@typescript-eslint/explicit-module-boundary-types': 'off',
+        '@typescript-eslint/no-inferrable-types': 'off',
+        'react/display-name': 'off',
         'no-restricted-syntax': 'off',
       },
     },
     {
       // Relax console in types.ts (it's pure data)
       files: ['src/types.ts'],
+      rules: {
+        'no-restricted-syntax': 'off',
+      },
+    },
+    {
+      // ConfigEditor legitimately checks secureJsonFields.apiKey (a boolean
+      // "is-configured" flag — the actual key value is never accessible in the
+      // browser). Allow the identifier in this file only.
+      files: ['src/components/ConfigEditor.tsx'],
+      rules: {
+        'no-restricted-syntax': 'off',
+      },
+    },
+    {
+      // Test files may reference field names (apiKey) when filling in forms
+      // via provisioned datasource data. The key never leaves the test context.
+      files: ['tests/**/*.ts', 'tests/**/*.tsx'],
       rules: {
         'no-restricted-syntax': 'off',
       },
