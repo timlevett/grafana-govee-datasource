@@ -78,8 +78,8 @@ export interface GoveeQuery extends DataQuery {
   deviceId: string;
   /** Govee device SKU (model string) */
   sku: string;
-  /** Capability instance to graph */
-  metric: MetricInstance;
+  /** Capability instance to graph — any string from the device's capability list, or 'custom' */
+  metric: string;
   /** Used when metric === 'custom' */
   customInstance?: string;
   /** Human-readable device name (display only) */

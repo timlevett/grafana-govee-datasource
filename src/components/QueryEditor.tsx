@@ -7,7 +7,6 @@ import {
   GoveeDataSourceOptions,
   GoveeQuery,
   GoveeDevice,
-  MetricInstance,
   METRIC_OPTIONS,
 } from '../types';
 
@@ -52,9 +51,10 @@ export class QueryEditor extends PureComponent<Props, State> {
 
   /**
    * Returns capability instances available on the currently selected device.
-   * Falls back to the full METRIC_OPTIONS list when no device is selected.
+   * Dynamically built from the device's capability list when a device is selected;
+   * falls back to the static METRIC_OPTIONS list when no device is selected.
    */
-  getMetricOptions = (): Array<SelectableValue<MetricInstance>> => {
+  getMetricOptions = (): Array<SelectableValue<string>> => {
     const { query } = this.props;
     const { devices } = this.state;
     const selectedDevice = devices.find((d) => d.device === query.deviceId);
@@ -63,17 +63,17 @@ export class QueryEditor extends PureComponent<Props, State> {
       return METRIC_OPTIONS;
     }
 
-    const availableInstances = new Set(selectedDevice.capabilities.map((c) => c.instance));
-    const filtered = METRIC_OPTIONS.filter(
-      (opt) => opt.value === 'custom' || (opt.value && availableInstances.has(opt.value))
-    );
+    // Build options from the device's actual capabilities so every instance
+    // reported by the Govee API appears in the dropdown — not just a predefined subset.
+    const options: Array<SelectableValue<string>> = selectedDevice.capabilities.map((cap) => ({
+      label: cap.instance,
+      value: cap.instance,
+      description: cap.type,
+    }));
 
-    // Always include "custom" at the end
-    if (!filtered.find((o) => o.value === 'custom')) {
-      filtered.push(METRIC_OPTIONS.find((o) => o.value === 'custom')!);
-    }
+    options.push({ label: 'Custom (enter instance)', value: 'custom' });
 
-    return filtered.length > 1 ? filtered : METRIC_OPTIONS;
+    return options;
   };
 
   // -------------------------------------------------------------------------
@@ -92,7 +92,7 @@ export class QueryEditor extends PureComponent<Props, State> {
     onRunQuery();
   };
 
-  onMetricChange = (value: SelectableValue<MetricInstance>) => {
+  onMetricChange = (value: SelectableValue<string>) => {
     const { onChange, query, onRunQuery } = this.props;
     onChange({ ...query, metric: value.value! });
     onRunQuery();
@@ -119,7 +119,8 @@ export class QueryEditor extends PureComponent<Props, State> {
       ? { label: query.deviceName || query.deviceId, value: query.deviceId }
       : undefined;
 
-    const selectedMetric = METRIC_OPTIONS.find((o) => o.value === query.metric) ?? METRIC_OPTIONS[0];
+    const metricOptions = this.getMetricOptions();
+    const selectedMetric = metricOptions.find((o) => o.value === query.metric) ?? metricOptions[0];
 
     return (
       <div>
@@ -159,7 +160,7 @@ export class QueryEditor extends PureComponent<Props, State> {
           >
             <Select
               width={24}
-              options={this.getMetricOptions()}
+              options={metricOptions}
               value={selectedMetric}
               onChange={this.onMetricChange}
             />
